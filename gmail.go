@@ -58,17 +58,28 @@ func (c *GmailClient) FindMailboxByName(name string) (*Mailbox, error) {
 
 // GetEmailsInMailbox returns message IDs in a label, up to limit (0 = all).
 func (c *GmailClient) GetEmailsInMailbox(labelID string, limit int) ([]string, error) {
+	var ids []string
 	call := c.svc.Users.Messages.List(c.user).LabelIds(labelID)
 	if limit > 0 {
 		call = call.MaxResults(int64(limit))
+		resp, err := call.Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list messages: %w", err)
+		}
+		for _, msg := range resp.Messages {
+			ids = append(ids, msg.Id)
+		}
+		return ids, nil
 	}
-	resp, err := call.Do()
+	// limit == 0: fetch all pages
+	err := call.Pages(context.Background(), func(resp *gmail.ListMessagesResponse) error {
+		for _, msg := range resp.Messages {
+			ids = append(ids, msg.Id)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list messages: %w", err)
-	}
-	ids := make([]string, 0, len(resp.Messages))
-	for _, msg := range resp.Messages {
-		ids = append(ids, msg.Id)
 	}
 	return ids, nil
 }
@@ -151,10 +162,10 @@ func extractGmailHTML(part *gmail.MessagePart) string {
 		return ""
 	}
 	if part.MimeType == "text/html" && part.Body != nil && part.Body.Data != "" {
-		decoded, err := base64.URLEncoding.DecodeString(part.Body.Data)
+		decoded, err := base64.RawURLEncoding.DecodeString(part.Body.Data)
 		if err != nil {
 			// Try standard encoding as fallback
-			decoded, err = base64.StdEncoding.DecodeString(part.Body.Data)
+			decoded, err = base64.RawStdEncoding.DecodeString(part.Body.Data)
 			if err != nil {
 				return ""
 			}

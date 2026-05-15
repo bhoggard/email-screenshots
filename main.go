@@ -31,20 +31,24 @@ type ProcessResult struct {
 func main() {
 	flag.Parse()
 
-	// Get API key from environment
-	apiKey := os.Getenv("FASTMAIL_AAR_KEY")
-	if apiKey == "" {
-		log.Fatal("FASTMAIL_AAR_KEY environment variable is required")
+	// Get Gmail configuration from environment
+	serviceAccountKey := os.Getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
+	if serviceAccountKey == "" {
+		log.Fatal("GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required")
+	}
+	gmailUser := os.Getenv("GMAIL_USER_EMAIL")
+	if gmailUser == "" {
+		log.Fatal("GMAIL_USER_EMAIL environment variable is required")
 	}
 
 	fmt.Println("Starting email screenshot generator...")
 
-	// Create JMAP client
-	client, err := NewJMAPClient(apiKey)
+	// Create Gmail client
+	client, err := NewGmailClient(serviceAccountKey, gmailUser)
 	if err != nil {
-		log.Fatalf("Failed to create JMAP client: %v", err)
+		log.Fatalf("Failed to create Gmail client: %v", err)
 	}
-	fmt.Println("✓ Connected to JMAP server")
+	fmt.Println("✓ Connected to Gmail API")
 
 	// Create screenshot generator
 	generator, err := NewScreenshotGenerator(screenshotDir, screenshotWidth, screenshotHeight)

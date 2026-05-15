@@ -1,10 +1,10 @@
 # Email Screenshot Generator
 
-A command-line Go application that reads emails from a specified JMAP folder, generates screenshots of each email's content, and automatically moves processed emails to an archive folder.
+A command-line Go application that reads emails from a specified Gmail label, generates screenshots of each email's content, and automatically moves processed emails to an archive label.
 
 ## Features
 
-- JMAP protocol support for email access (Fastmail)
+- Gmail API access via Google Workspace service account
 - Batch processing of multiple emails
 - Screenshot generation with customizable dimensions
 - Automatic email archiving after processing
@@ -15,7 +15,8 @@ A command-line Go application that reads emails from a specified JMAP folder, ge
 
 - Go 1.19 or later
 - Chrome/Chromium browser (for headless screenshot generation)
-- Fastmail account with API access
+- Google Workspace account
+- A service account with domain-wide delegation enabled
 
 ## Installation
 
@@ -30,98 +31,99 @@ cd aar
 go mod download
 ```
 
-3. Set the FASTMAIL_AAR_KEY environment variable:
+3. Set the required environment variables (see Configuration below).
+
+## Google Workspace Setup
+
+### 1. Create a Service Account
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create or select a project
+3. Enable the Gmail API
+4. Go to **IAM & Admin > Service Accounts** and create a service account
+5. Create and download a JSON key for the service account
+
+### 2. Enable Domain-Wide Delegation
+
+1. In Google Cloud Console, open the service account and enable **Domain-wide delegation**
+2. In [Google Workspace Admin Console](https://admin.google.com/), go to **Security > API Controls > Domain-wide Delegation**
+3. Add the service account's client ID with the scope: `https://www.googleapis.com/auth/gmail.modify`
+
+### 3. Create Gmail Labels
+
+Create two labels in the target Gmail account:
+
+- **`_aar`** — Source label containing emails to process
+- **`_aar_processed`** — Archive label for processed emails
+
+## Configuration
+
+| Setting | Description |
+|---------|-------------|
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Path to service account JSON key file (required) |
+| `GMAIL_USER_EMAIL` | Gmail address of the user to impersonate (required) |
+| Screenshot directory | `./screenshots` (constant in code) |
+| Screenshot width | `1280` px (constant in code) |
+| Screenshot height | `800` px (constant in code) |
+| Source label | `_aar` (constant in code) |
+| Archive label | `_aar_processed` (constant in code) |
+
+Example `.env` or shell exports:
+
 ```bash
-export FASTMAIL_AAR_KEY=your_fastmail_api_key_here
+export GOOGLE_SERVICE_ACCOUNT_KEY=/path/to/service-account.json
+export GMAIL_USER_EMAIL=user@yourdomain.com
 ```
-
-## Getting a Fastmail API Key
-
-1. Log in to your Fastmail account
-2. Go to Settings > Privacy & Security
-3. Under "API Tokens", click "Create API Token"
-4. Give it a name (e.g., "Email Screenshot Generator")
-5. Grant the following permissions:
-   - Mail: Read-write (for reading and moving emails)
-6. Copy the generated token and set it as the FASTMAIL_AAR_KEY environment variable
-
-## Mailbox Setup
-
-The application requires two mailboxes in your Fastmail account:
-
-- **`_aar`** - Source folder containing emails to process
-- **`_aar_processed`** - Archive folder for processed emails
-
-Create these mailboxes in Fastmail before running the application.
 
 ## Usage
 
 ### Basic Usage
 
-Process all emails in the source folder:
+Process all emails in the source label:
 ```bash
 go run .
 ```
 
 Or build and run:
 ```bash
-go build -o email-screenshot-generator
-./email-screenshot-generator
+go build -o aar
+./aar
 ```
 
 ### Command-Line Flags
 
 **Limit the number of emails to process:**
 ```bash
-./email-screenshot-generator -limit 10
+./aar -limit 10
 ```
 
 **Dry-run mode (preview without making changes):**
 ```bash
-./email-screenshot-generator -dry-run
+./aar -dry-run
 ```
 
 **Combine flags:**
 ```bash
-./email-screenshot-generator -limit 5 -dry-run
+./aar -limit 5 -dry-run
 ```
-
-## Configuration
-
-The application uses the following configuration:
-
-| Setting | Description | Value |
-|---------|-------------|-------|
-| `FASTMAIL_AAR_KEY` | Fastmail API key (environment variable, required) | - |
-| Screenshot directory | Directory to save screenshots | `./screenshots` |
-| Screenshot width | Screenshot width in pixels | `1280` |
-| Screenshot height | Screenshot height in pixels | `800` |
-| Source folder | Mailbox to read emails from | `_aar` |
-| Archive folder | Mailbox to move processed emails to | `_aar_processed` |
-
-Screenshot dimensions and folder names are defined as constants in the code.
 
 ## Output
 
-Screenshots are saved to the configured output directory with the naming format:
+Screenshots are saved to `./screenshots` with the naming format:
 ```
-email_<emailID>.png
+yyyy-mm-dd-hh-mm-ss-<emailID>.png
 ```
+Timestamps are converted from UTC to New York time (America/New_York).
 
 Example output:
 ```
 Starting email screenshot generator...
-✓ Connected to JMAP server
+✓ Connected to Gmail API
 Found 5 email(s) in folder '_aar'
 
-Processing email 1/5 (ID: M123abc)...
+Processing email 1/5 (ID: 18c1a2b3d4e5f6a7)...
   Subject: Welcome to our service
-  ✓ Screenshot generated: screenshots/email_M123abc.png
-  ✓ Moved to archive folder
-
-Processing email 2/5 (ID: M456def)...
-  Subject: Your monthly report
-  ✓ Screenshot generated: screenshots/email_M456def.png
+  ✓ Screenshot generated: screenshots/2025-10-24-10-30-45-18c1a2b3d4e5f6a7.png
   ✓ Moved to archive folder
 
 === Summary ===
@@ -130,58 +132,47 @@ Successfully processed: 5
 Failed: 0
 ```
 
-## Error Handling
-
-The application will:
-- Continue processing remaining emails if one fails
-- Log detailed error messages for each failure
-- Provide a summary of successes and failures at the end
-- Exit with clear error messages for authentication or connection issues
-
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 .
 ├── main.go           # Main application and orchestration
-├── jmap.go           # JMAP client implementation
-├── screenshot.go     # Screenshot generation
+├── gmail.go          # Gmail API client implementation
+├── types.go          # Shared data types
+├── interfaces.go     # EmailClient and ScreenshotService interfaces
+├── screenshot.go     # Screenshot generation via headless Chrome
 ├── go.mod            # Go module dependencies
 └── README.md         # This file
 ```
 
-### Running Tests
+## Running Tests
 
 ```bash
 go test ./...
 ```
 
-### Building
-
-```bash
-go build -o email-screenshot-generator
-```
-
 ## Troubleshooting
 
-**"FASTMAIL_AAR_KEY environment variable is required"**
-- Make sure you have set the FASTMAIL_AAR_KEY environment variable with your Fastmail API key
+**"GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required"**
+- Set `GOOGLE_SERVICE_ACCOUNT_KEY` to the path of your service account JSON key file.
 
-**"Failed to find source folder '_aar'"**
-- Create the `_aar` mailbox in your Fastmail account
+**"GMAIL_USER_EMAIL environment variable is required"**
+- Set `GMAIL_USER_EMAIL` to the Gmail address of the user to impersonate.
 
-**"Failed to find archive folder '_aar_processed'"**
-- Create the `_aar_processed` mailbox in your Fastmail account
+**"Failed to create Gmail client"**
+- Verify the service account JSON key file exists and is readable.
+- Verify the service account has domain-wide delegation configured.
+- Verify the Gmail API is enabled in your Google Cloud project.
+
+**"label '_aar' not found"**
+- Create the `_aar` label in the target Gmail account.
+
+**"label '_aar_processed' not found"**
+- Create the `_aar_processed` label in the target Gmail account.
 
 **"Failed to generate screenshot"**
-- Ensure Chrome/Chromium is installed on your system
-- Check that the HTML content is valid
+- Ensure Chrome/Chromium is installed on your system.
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.

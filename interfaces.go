@@ -1,6 +1,6 @@
 package main
 
-// EmailClient defines the interface for JMAP email operations
+// EmailClient defines the interface for email operations
 type EmailClient interface {
 	FindMailboxByName(name string) (*Mailbox, error)
 	GetEmailsInMailbox(mailboxID string, limit int) ([]string, error)

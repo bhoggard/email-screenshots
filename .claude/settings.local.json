@@ -34,7 +34,15 @@
       "Bash(./email-screenshot-generator -h)",
       "Bash(source ~/.secrets)",
       "Bash(go test -v)",
-      "Bash(go fmt:*)"
+      "Bash(go fmt:*)",
+      "Bash(mkdir:*)",
+      "Bash(go get:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(go mod:*)",
+      "Bash(go list:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)"
     ],
     "deny": [],
     "ask": []

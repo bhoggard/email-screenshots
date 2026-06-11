@@ -18,6 +18,7 @@ Replace the Fastmail JMAP email client with a Gmail API client using a Google Wo
 | `screenshot.go` | No change |
 | `main.go` | Replace `NewJMAPClient` + `FASTMAIL_AAR_KEY` with `NewGmailClient` + new env vars |
 | `go.mod` | Add `google.golang.org/api` and `golang.org/x/oauth2` |
+| `README.md` | Update for using gmail configuration instead of fastmail |
 
 ## Authentication
 
